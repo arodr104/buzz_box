@@ -2,13 +2,21 @@
 // Team 2A
 // BUZZ BOX
 
+#include <Stepper.h>
+#include "SparkFun_TB6612.h"
+#define STEPS 200
+
+// Pin assignments
 int PLAY = 10;
-//int LIVE = 11;
 int STOP = 12;
 int RECORD = 13;
 int noteButtonPin = A1;
 int speaker = 4;
 
+Motor DC_motor = Motor(7, 8, 9, 1, 11);
+Stepper stepper(STEPS, 2, 3, 5, 6);
+
+// Struct to hold note information
 struct noteNode {
   float duration;
   float note;
@@ -18,15 +26,16 @@ struct noteNode {
   noteNode* next;
 };
 
+// Head and tail pointers for note list
 noteNode* tail = new noteNode();
 noteNode* head = tail;
 
 void setup()
 {
   pinMode(PLAY, INPUT_PULLUP);
-  //pinMode(LIVE, INPUT_PULLUP);
   pinMode(STOP, INPUT_PULLUP);
   pinMode(RECORD, INPUT_PULLUP);
+  stepper.setSpeed(115);
   Serial.begin(9600);
 }
 
@@ -44,28 +53,47 @@ void loop()
 	Serial.println("IDLE");
 }
 
+// ---------------------------------------------------------------------------
+// playing()
+// 
+// Description:
+//   Playback loop. Plays current notes and moves Buzz with a unique movement
+//   per each note (movement is yet to be added). Recorded notes are played by
+//   traversing the recording linked list. When all notes have been played
+//   Buzz will return to his starting position and playback will start over.
+//   Breaks out of loop when STOP is pressed.
+// ---------------------------------------------------------------------------
 void playing()
 {
-	if (head == NULL) // Empty List
+	// Empty List
+	if (head == NULL)
 		return;
 		
 	float startNote;
 	float endNote;
 	Serial.println("PLAYING");
-	while (1) // Playing Loop
+	
+	// Playing Loop
+	while (1)
 	{
 		noteNode* curr = head;
 		
 		while (curr != NULL)
 		{
 			Serial.println(curr->name);
-
-      if (!curr->silent)
+			
+			// Don't play when note is silent
+			if (!curr->silent)
+      {
 			  tone(speaker, curr->note, curr->duration);
+        //DC_motor.drive(200);
+        stepper.step(15);
+      }
         
 			startNote = endNote = millis();
 			
-			while (endNote - startNote < curr->duration) // Delay for the length of note
+			// Delay for the length of note
+			while (endNote - startNote < curr->duration)
 			{
 				int stopPlaying = digitalRead(STOP);
 
@@ -74,12 +102,21 @@ void playing()
 				
 				endNote = millis();
 			}
-			
+
+      //DC_motor.brake();
 			curr = curr->next;
 		}
 	}
 }
 
+// ---------------------------------------------------------------------------
+// recording()
+// 
+// Description:
+//   Recording loop. Waits for input note to append to current note list.
+//   Silence before a note is pressed is added as a note. Breaks out of loop
+//   when STOP is pressed.
+// ---------------------------------------------------------------------------
 void recording()
 {
 	float notePressed;
@@ -88,36 +125,42 @@ void recording()
 	float silenceEnd;
 	int input;
 	
-	while (1) // Recording Loop
+	// Recording Loop
+	while (1)
 	{
 		silenceStart = millis();
-    
-		while (1) // No note pressed
+		
+		// No note pressed
+		while (1) 
 		{
 			
 			Serial.println("RECORDING");
 			int stopRecording = digitalRead(STOP);
 			input = analogRead(noteButtonPin);
 			
-			if (stopRecording == LOW) // Add in last silence node
+			if (stopRecording == LOW)
 			  return;
 		  
-			if (input != 0) // Note has been pressed
+			// Note has been pressed
+			if (input != 0)
 			{
 				notePressed = silenceEnd = millis();
 				break;
 			}
 		}
 		
-    tail->name = "Silent";
+		// Add silent note
+		tail->name = "Silent";
 		tail->duration = silenceEnd - silenceStart;
 		tail->silent = true;
-    tail->next = new noteNode();
-    tail = tail->next;
+		tail->next = new noteNode();
+		tail = tail->next;
+		
 		float note;
 		String noteName;
 		
-		while (input != 0) // Note is being held
+		// Note is being held
+		while (input != 0)
 		{
 			if (input > 40 && input < 80) // A2
 			{
@@ -187,11 +230,13 @@ void recording()
 		}
 		
 		noteReleased = millis();
-    tail->name = noteName;
+		
+		// Add note
+		tail->name = noteName;
 		tail->note = note;
 		tail->duration = noteReleased - notePressed;
 		tail->silent = false;
-    tail->next = new noteNode();
-    tail = tail->next;
+		tail->next = new noteNode();
+		tail = tail->next;
 	}
 }
