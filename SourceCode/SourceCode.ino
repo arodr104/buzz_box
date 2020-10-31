@@ -3,18 +3,20 @@
 // BUZZ BOX
 
 #include <Stepper.h>
+#include <math.h>
 #include "SparkFun_TB6612.h"
 #define STEPS 200
+#define NOTELIMIT 80
 
 // Pin assignments
 int PLAY = 10;
-int STOP = 12;
-int RECORD = 13;
+int STOP = 13;
+int RECORD = 12;
 int noteButtonPin = A1;
-int speaker = 4;
+int speaker = 11;
 
-Motor DC_motor = Motor(7, 8, 9, 1, 11);
-Stepper stepper(STEPS, 2, 3, 5, 6);
+//Motor DC_motor = Motor(7, 8, 9, 1, 2);
+Stepper stepper(STEPS, 1 ,0, 4, 5);
 
 // Struct to hold note information
 struct noteNode {
@@ -26,6 +28,8 @@ struct noteNode {
   noteNode* next;
 };
 
+int noteCount = 0;
+
 // Head and tail pointers for note list
 noteNode* tail = new noteNode();
 noteNode* head = tail;
@@ -35,8 +39,12 @@ void setup()
   pinMode(PLAY, INPUT_PULLUP);
   pinMode(STOP, INPUT_PULLUP);
   pinMode(RECORD, INPUT_PULLUP);
+  pinMode(3, OUTPUT);
+  pinMode(6, OUTPUT);
+  digitalWrite(3, HIGH);
+  digitalWrite(6, HIGH);
   stepper.setSpeed(115);
-  Serial.begin(9600);
+  //Serial.begin(9600);
 }
 
 void loop()
@@ -50,7 +58,9 @@ void loop()
 	else if (startRec == LOW)
 	  recording();
 
-	Serial.println("IDLE");
+	//Serial.println("IDLE");
+  stepper.step(1);
+  //DC_motor.drive(200);
 }
 
 // ---------------------------------------------------------------------------
@@ -68,10 +78,8 @@ void playing()
 	// Empty List
 	if (head == NULL)
 		return;
-		
-	float startNote;
-	float endNote;
-	Serial.println("PLAYING");
+   
+	////Serial.println("PLAYING");
 	
 	// Playing Loop
 	while (1)
@@ -80,27 +88,26 @@ void playing()
 		
 		while (curr != NULL)
 		{
-			Serial.println(curr->name);
+			//Serial.println(curr->name);
+      //Serial.println(curr->duration);
 			
 			// Don't play when note is silent
 			if (!curr->silent)
       {
 			  tone(speaker, curr->note, curr->duration);
         //DC_motor.drive(200);
-        stepper.step(15);
+        //stepper.step(15);
       }
         
-			startNote = endNote = millis();
+			float startNote = millis();
 			
 			// Delay for the length of note
-			while (endNote - startNote < curr->duration)
+			while (millis() - startNote < curr->duration)
 			{
 				int stopPlaying = digitalRead(STOP);
 
 				if (stopPlaying == LOW)
-					return;
-				
-				endNote = millis();
+					return;		
 			}
 
       //DC_motor.brake();
@@ -119,6 +126,7 @@ void playing()
 // ---------------------------------------------------------------------------
 void recording()
 {
+  ////Serial.println("RESET");
 	float notePressed;
 	float noteReleased;
 	float silenceStart;
@@ -134,15 +142,15 @@ void recording()
 		while (1) 
 		{
 			
-			Serial.println("RECORDING");
+			//Serial.println("RECORDING");
 			int stopRecording = digitalRead(STOP);
 			input = analogRead(noteButtonPin);
-			
+			//Serial.println(input);
 			if (stopRecording == LOW)
 			  return;
 		  
 			// Note has been pressed
-			if (input != 0)
+			if (input != 1023)
 			{
 				notePressed = silenceEnd = millis();
 				break;
@@ -150,80 +158,84 @@ void recording()
 		}
 		
 		// Add silent note
-		tail->name = "Silent";
-		tail->duration = silenceEnd - silenceStart;
-		tail->silent = true;
-		tail->next = new noteNode();
-		tail = tail->next;
+    if (noteCount <= NOTELIMIT)
+    {
+  		tail->name = "Silent";
+  		tail->duration = silenceEnd - silenceStart;
+  		tail->silent = true;
+  		tail->next = new noteNode();
+  		tail = tail->next;
+  		noteCount++;
+		}
 		
 		float note;
 		String noteName;
 		
 		// Note is being held
-		while (input != 0)
+		while (input != 1023)
 		{
-			if (input > 40 && input < 80) // A2
+			if (input == 0) // A2
 			{
 				noteName = "A2";
 				note = 110;
-				Serial.println("Button 1");
-				tone(speaker, 110, 100); 
+				//Serial.println("A2");
+				//tone(speaker, 110, 100);
 			}
 
-			else if (input > 90 && input < 120) // B2
+			else if (input > 500 && input < 520) // B2
 			{
 				noteName = "B2";
 				note = 123.471;
-				Serial.println("Button 2");
-				tone(speaker, 123.471, 100); 
+				//Serial.println("B2");
+				//tone(speaker, 123.471, 100);
 			}
 
-			else if (input > 125 && input < 140) // C3
+			else if (input > 670 && input < 700) // C3
 			{
 				noteName = "C3";
 				note = 130.813;
-				Serial.println("Button 3");
-				tone(speaker, 130.813, 100); 
+				//Serial.println("C3");
+				//tone(speaker, 130.813, 100); 
 			}
 
-			else if (input > 150 && input < 170) // D3
+			else if (input > 750 && input < 800) // D3
 			{
 				noteName = "D3";
 				note = 146.832;
-				Serial.println("Button 4");
-				tone(speaker, 146.832, 100); 
+				//Serial.println("D3");
+				//tone(speaker, 146.832, 100); 
 			}
 
-			else if (input > 200 && input < 230) // E3
+			else if (input > 810 && input < 830) // E3
 			{
 				noteName = "E3";
 				note = 164.814;
-				Serial.println("Button 5");
-				tone(speaker, 164.814, 100); 
+				//Serial.println("E3");
+				//tone(speaker, 164.814, 100); 
 			}
 
-			else if (input > 280 && input < 340) // F3
+			else if (input > 850 && input < 860) // F3
 			{
 				noteName = "F3";
 				note = 174.614;
-				Serial.println("Button 6");
-				tone(speaker, 174.614, 100); 
+				//Serial.println("F3");
+				//tone(speaker, 174.614, 100); 
 			}
 
-			else if (input > 400 && input < 500) // G3
+			else if (input > 875 && input < 885) // G3
 			{
 				noteName = "G3";
 				note = 195.998;
-				Serial.println("Button 7");
-				tone(speaker, 195.998, 100); 
+				//Serial.println("G3");
+				//tone(speaker, 195.998, 100); 
 			}
 
-			else if (input > 1000 && input < 1100) // G#3
+			else if (input > 880 && input < 900) // G#3
 			{
 				noteName = "G#3";
 				note = 207.652;
-				Serial.println("Button 8");
-				tone(speaker, 207.652, 100); 
+				//Serial.println("G#3");
+				//tone(speaker, 207.652, 100); 
 			}
 
 			input = analogRead(noteButtonPin);
@@ -232,11 +244,15 @@ void recording()
 		noteReleased = millis();
 		
 		// Add note
-		tail->name = noteName;
-		tail->note = note;
-		tail->duration = noteReleased - notePressed;
-		tail->silent = false;
-		tail->next = new noteNode();
-		tail = tail->next;
+   if (noteCount <= NOTELIMIT)
+   {
+  		tail->name = noteName;
+  		tail->note = note;
+  		tail->duration = noteReleased - notePressed;
+  		tail->silent = false;
+  		tail->next = new noteNode();
+  		tail = tail->next;
+  		noteCount++;
+		}
 	}
 }
