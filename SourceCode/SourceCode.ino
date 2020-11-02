@@ -3,10 +3,9 @@
 // BUZZ BOX
 
 #include <Stepper.h>
-#include <math.h>
 #include "SparkFun_TB6612.h"
 #define STEPS 200
-#define NOTELIMIT 80
+#define NOTELIMIT 200
 
 // Pin assignments
 int PLAY = 10;
@@ -16,18 +15,17 @@ int noteButtonPin = A1;
 int speaker = 11;
 
 Motor DC_motor = Motor(7, 8, 9, 1, 2);
-Stepper stepper(STEPS, A3 ,A2, 4, 5);
+Stepper stepper(STEPS, A4, A2, 4, 5);
 
 // Struct to hold note information
 struct noteNode {
   float duration;
   float note;
-  bool silent;
-  String name;
-  
   noteNode* next;
 };
 
+float silentNotes[NOTELIMIT];
+int silentIndex = 0;
 int noteCount = 0;
 
 // Head and tail pointers for note list
@@ -36,6 +34,9 @@ noteNode* head = tail;
 
 void setup()
 {
+  for (float num : silentNotes)
+    num = 0;
+    
   pinMode(PLAY, INPUT_PULLUP);
   pinMode(STOP, INPUT_PULLUP);
   pinMode(RECORD, INPUT_PULLUP);
@@ -58,8 +59,7 @@ void loop()
 	else if (startRec == LOW)
 	  recording();
 
-	Serial.println("IDLE");
-  //DC_motor.drive(200);
+	//Serial.println("IDLE");
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +79,7 @@ void playing()
 		return;
    
 	Serial.println("PLAYING");
+  int i = 0;
 	
 	// Playing Loop
 	while (1)
@@ -87,29 +88,20 @@ void playing()
 		
 		while (curr != NULL)
 		{
-			Serial.println(curr->name);
-      Serial.println(curr->duration);
-			
-			// Don't play when note is silent
-			/*if (!curr->silent)
-      {
-			  tone(speaker, curr->note, curr->duration);
-        //DC_motor.drive(200);
-        stepper.step(100);
-      }*/
-        
+      // No sound when not note was pressed
+      int startSilent = millis();
+      while (millis() - startSilent < silentNotes[i]){}
+      i++;
+      
+      Serial.println(curr->duration);      
 			float startNote = millis();
 			
 			// Delay for the length of note
 			while (millis() - startNote < curr->duration)
 			{
-        if (!curr->silent)
-         {
-          tone(speaker, curr->note, 50);
-          DC_motor.drive(1);
-          stepper.step(1);
-         }
-         
+        tone(speaker, curr->note, 50);
+        DC_motor.drive(1);
+        stepper.step(1); 
 				int stopPlaying = digitalRead(STOP);
 
 				if (stopPlaying == LOW)
@@ -119,6 +111,8 @@ void playing()
       DC_motor.brake();
 			curr = curr->next;
 		}
+
+    i = 0;
 	}
 }
 
@@ -132,7 +126,6 @@ void playing()
 // ---------------------------------------------------------------------------
 void recording()
 {
-  Serial.println("RESET");
 	float notePressed;
 	float noteReleased;
 	float silenceStart;
@@ -147,40 +140,32 @@ void recording()
 		// No note pressed
 		while (1) 
 		{
-			
-			//Serial.println("RECORDING");
 			int stopRecording = digitalRead(STOP);
 			input = analogRead(noteButtonPin);
-			Serial.println(input);
+			//Serial.println(input);
 			if (stopRecording == LOW)
 			  return;
 		  
 			// Note has been pressed
-			if (input > 30)
+			if (input < 1000)
 			{
 				notePressed = silenceEnd = millis();
 				break;
 			}
 		}
-		
-		// Add silent note
-    if (noteCount <= NOTELIMIT)
-    {
-  		tail->name = "Silent";
-  		tail->duration = silenceEnd - silenceStart;
-  		tail->silent = true;
-  		tail->next = new noteNode();
-  		tail = tail->next;
-  		noteCount++;
-		}
+   
+    silentNotes[silentIndex++] = silenceEnd - silenceStart;
+
+    if (silentIndex >= NOTELIMIT)
+      silentIndex--;
 		
 		float note;
 		String noteName;
 		
 		// Note is being held
-		while (input > 30)
+		while (input != 1023)
 		{
-			if (input > 40 && input < 60) // A2
+			if (input < 300) // A2
 			{
 				noteName = "A2";
 				note = 110;
@@ -188,7 +173,7 @@ void recording()
 				tone(speaker, 110, 100);
 			}
 
-			else if (input >= 60 && input < 80) // B2
+			else if (input > 450 && input < 600) // B2
 			{
 				noteName = "B2";
 				note = 123.471;
@@ -196,7 +181,7 @@ void recording()
 				tone(speaker, 123.471, 100);
 			}
 
-			else if (input >= 80 && input < 95) // C3
+			else if (input > 600 && input < 720) // C3
 			{
 				noteName = "C3";
 				note = 130.813;
@@ -204,7 +189,7 @@ void recording()
 				tone(speaker, 130.813, 100); 
 			}
 
-			else if (input >= 95 && input < 112) // D3
+			else if (input > 730 && input < 790) // D3
 			{
 				noteName = "D3";
 				note = 146.832;
@@ -212,7 +197,7 @@ void recording()
 				tone(speaker, 146.832, 100); 
 			}
 
-			else if (input > 120 && input < 150) // E3
+			else if (input > 800 && input < 840) // E3
 			{
 				noteName = "E3";
 				note = 164.814;
@@ -220,7 +205,7 @@ void recording()
 				tone(speaker, 164.814, 100); 
 			}
 
-			else if (input > 160 && input < 200) // F3
+			else if (input > 845 && input < 860) // F3
 			{
 				noteName = "F3";
 				note = 174.614;
@@ -228,7 +213,7 @@ void recording()
 				tone(speaker, 174.614, 100); 
 			}
 
-			else if (input > 210 && input < 300) // G3
+			else if (input > 861 && input < 885) // G3
 			{
 				noteName = "G3";
 				note = 195.998;
@@ -236,7 +221,7 @@ void recording()
 				tone(speaker, 195.998, 100); 
 			}
 
-			else if (input > 500 && input < 600) // G#3
+			else if (input > 885 && input < 950) // G#3
 			{
 				noteName = "G#3";
 				note = 207.652;
@@ -252,10 +237,8 @@ void recording()
 		// Add note
    if (noteCount <= NOTELIMIT)
    {
-  		tail->name = noteName;
   		tail->note = note;
   		tail->duration = noteReleased - notePressed;
-  		tail->silent = false;
   		tail->next = new noteNode();
   		tail = tail->next;
   		noteCount++;
