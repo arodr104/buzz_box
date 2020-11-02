@@ -15,8 +15,8 @@ int RECORD = 12;
 int noteButtonPin = A1;
 int speaker = 11;
 
-//Motor DC_motor = Motor(7, 8, 9, 1, 2);
-Stepper stepper(STEPS, 1 ,0, 4, 5);
+Motor DC_motor = Motor(7, 8, 9, 1, 2);
+Stepper stepper(STEPS, A3 ,A2, 4, 5);
 
 // Struct to hold note information
 struct noteNode {
@@ -43,8 +43,8 @@ void setup()
   pinMode(6, OUTPUT);
   digitalWrite(3, HIGH);
   digitalWrite(6, HIGH);
-  stepper.setSpeed(115);
-  //Serial.begin(9600);
+  stepper.setSpeed(50);
+  Serial.begin(9600);
 }
 
 void loop()
@@ -58,8 +58,7 @@ void loop()
 	else if (startRec == LOW)
 	  recording();
 
-	//Serial.println("IDLE");
-  stepper.step(1);
+	Serial.println("IDLE");
   //DC_motor.drive(200);
 }
 
@@ -79,7 +78,7 @@ void playing()
 	if (head == NULL)
 		return;
    
-	////Serial.println("PLAYING");
+	Serial.println("PLAYING");
 	
 	// Playing Loop
 	while (1)
@@ -88,29 +87,36 @@ void playing()
 		
 		while (curr != NULL)
 		{
-			//Serial.println(curr->name);
-      //Serial.println(curr->duration);
+			Serial.println(curr->name);
+      Serial.println(curr->duration);
 			
 			// Don't play when note is silent
-			if (!curr->silent)
+			/*if (!curr->silent)
       {
 			  tone(speaker, curr->note, curr->duration);
         //DC_motor.drive(200);
-        //stepper.step(15);
-      }
+        stepper.step(100);
+      }*/
         
 			float startNote = millis();
 			
 			// Delay for the length of note
 			while (millis() - startNote < curr->duration)
 			{
+        if (!curr->silent)
+         {
+          tone(speaker, curr->note, 50);
+          DC_motor.drive(1);
+          stepper.step(1);
+         }
+         
 				int stopPlaying = digitalRead(STOP);
 
 				if (stopPlaying == LOW)
 					return;		
 			}
 
-      //DC_motor.brake();
+      DC_motor.brake();
 			curr = curr->next;
 		}
 	}
@@ -126,7 +132,7 @@ void playing()
 // ---------------------------------------------------------------------------
 void recording()
 {
-  ////Serial.println("RESET");
+  Serial.println("RESET");
 	float notePressed;
 	float noteReleased;
 	float silenceStart;
@@ -145,12 +151,12 @@ void recording()
 			//Serial.println("RECORDING");
 			int stopRecording = digitalRead(STOP);
 			input = analogRead(noteButtonPin);
-			//Serial.println(input);
+			Serial.println(input);
 			if (stopRecording == LOW)
 			  return;
 		  
 			// Note has been pressed
-			if (input != 1023)
+			if (input > 30)
 			{
 				notePressed = silenceEnd = millis();
 				break;
@@ -172,70 +178,70 @@ void recording()
 		String noteName;
 		
 		// Note is being held
-		while (input != 1023)
+		while (input > 30)
 		{
-			if (input == 0) // A2
+			if (input > 40 && input < 60) // A2
 			{
 				noteName = "A2";
 				note = 110;
-				//Serial.println("A2");
-				//tone(speaker, 110, 100);
+				Serial.println("A2");
+				tone(speaker, 110, 100);
 			}
 
-			else if (input > 500 && input < 520) // B2
+			else if (input >= 60 && input < 80) // B2
 			{
 				noteName = "B2";
 				note = 123.471;
-				//Serial.println("B2");
-				//tone(speaker, 123.471, 100);
+				Serial.println("B2");
+				tone(speaker, 123.471, 100);
 			}
 
-			else if (input > 670 && input < 700) // C3
+			else if (input >= 80 && input < 95) // C3
 			{
 				noteName = "C3";
 				note = 130.813;
-				//Serial.println("C3");
-				//tone(speaker, 130.813, 100); 
+				Serial.println("C3");
+				tone(speaker, 130.813, 100); 
 			}
 
-			else if (input > 750 && input < 800) // D3
+			else if (input >= 95 && input < 112) // D3
 			{
 				noteName = "D3";
 				note = 146.832;
-				//Serial.println("D3");
-				//tone(speaker, 146.832, 100); 
+				Serial.println("D3");
+				tone(speaker, 146.832, 100); 
 			}
 
-			else if (input > 810 && input < 830) // E3
+			else if (input > 120 && input < 150) // E3
 			{
 				noteName = "E3";
 				note = 164.814;
-				//Serial.println("E3");
-				//tone(speaker, 164.814, 100); 
+				Serial.println("E3");
+				tone(speaker, 164.814, 100); 
 			}
 
-			else if (input > 850 && input < 860) // F3
+			else if (input > 160 && input < 200) // F3
 			{
 				noteName = "F3";
 				note = 174.614;
-				//Serial.println("F3");
-				//tone(speaker, 174.614, 100); 
+				Serial.println("F3");
+				tone(speaker, 174.614, 100); 
 			}
 
-			else if (input > 875 && input < 885) // G3
+			else if (input > 210 && input < 300) // G3
 			{
 				noteName = "G3";
 				note = 195.998;
-				//Serial.println("G3");
-				//tone(speaker, 195.998, 100); 
+				Serial.println("G3");
+				tone(speaker, 195.998, 100); 
 			}
 
-			else if (input > 880 && input < 900) // G#3
+			else if (input > 500 && input < 600) // G#3
 			{
 				noteName = "G#3";
 				note = 207.652;
-				//Serial.println("G#3");
-				//tone(speaker, 207.652, 100); 
+				Serial.println("G#3");
+				tone(speaker, 207.652, 100); 
 			}
 
 			input = analogRead(noteButtonPin);
