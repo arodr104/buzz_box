@@ -6,22 +6,24 @@
 #include "SparkFun_TB6612.h"
 #define STEPS 200
 #define NOTELIMIT 110
+#define stepperLimit 200
 
 // Pin assignments
 int PLAY = 10;
+int RESET = A2;
+int PLAYLIVE = A4;
 int STOP = 13;
 int RECORD = 12;
 int noteButtonPin = A1;
 int speaker = 11;
 
-Motor DC_motor = Motor(7, 8, 9, 1, 2);
-Stepper stepper(STEPS, A4, A2, 4, 5);
+Motor DC_motor = Motor(7, 8, 1, 2);
+Stepper stepper(STEPS, 1, 0, 4, 5);
 
 // Struct to hold note information
 struct noteNode {
   float duration;
   float note;
-  //noteNode* next;
 };
 
 noteNode noteArray[NOTELIMIT];
@@ -32,30 +34,28 @@ int noteCount = 0;
 int stepperBasePOS = 0;
 int stepperPOS = 0;
 
-// Head and tail pointers for note list
-noteNode* tail = new noteNode();
-noteNode* head = tail;
-
 void setup()
 {
-  for (float num : silentNotes)
-    num = 0;
+  noteArray[0].note = -1;
     
   pinMode(PLAY, INPUT_PULLUP);
   pinMode(STOP, INPUT_PULLUP);
   pinMode(RECORD, INPUT_PULLUP);
+  pinMode(PLAYLIVE, INPUT_PULLUP);
+  pinMode(RESET, INPUT_PULLUP);
   pinMode(3, OUTPUT);
   pinMode(6, OUTPUT);
   digitalWrite(3, HIGH);
   digitalWrite(6, HIGH);
   stepper.setSpeed(20);
-  Serial.begin(9600);
 }
 
 void loop()
 {
 	int startPlay = digitalRead(PLAY);
 	int startRec = digitalRead(RECORD);
+  int playLive = digitalRead(PLAYLIVE);
+  int resetBox = digitalRead(RESET);
 
 	if (startPlay == LOW)
 	  playing();
@@ -63,7 +63,11 @@ void loop()
 	else if (startRec == LOW)
 	  recording();
 
-	Serial.println("IDLE");
+  else if (playLive == LOW)
+    live();
+
+  else if (resetBox == LOW)
+    restart();
 }
 
 // ---------------------------------------------------------------------------
@@ -79,10 +83,9 @@ void loop()
 void playing()
 {
 	// Empty List
-	if (head == NULL)
+	if (noteArray[0].note == -1)
 		return;
    
-	Serial.println("PLAYING");
   int i = 0;
   int stopPlaying;
 	
@@ -94,8 +97,6 @@ void playing()
 		{
       // No sound when not note was pressed
       float startSilent = millis();
-      Serial.print("Silent Duration: ");
-      Serial.println(silentNotes[i]);
       
       while (millis() - startSilent < silentNotes[i])
       {
@@ -104,11 +105,8 @@ void playing()
         if (stopPlaying == LOW)
           return;
       }
-      
-      //Serial.println(curr->duration);      
+           
 			float startNote = millis();
-			Serial.print("Note Duration: ");
-      Serial.println(noteArray[i].duration);
       int stepperDirection;
 
       // Choose stepper motor direction based on the current note
@@ -125,12 +123,10 @@ void playing()
         stepperDirection = 1;
       }
 
-      int stepperLimit = 200;
 			// Delay for the length of note
 			while (millis() - startNote < noteArray[i].duration)
 			{
         tone(speaker, noteArray[i].note, 50);
-        DC_motor.drive(1);
 
         if (stepperPOS >= stepperLimit && stepperDirection == 1)
           stepperDirection -= 2;
@@ -138,8 +134,8 @@ void playing()
         else if (stepperPOS <= 0 && stepperDirection == -1)
           stepperDirection += 2;
           
-        Serial.println(stepperPOS);
         stepper.step(stepperDirection);
+        DC_motor.drive(1);
         stepperPOS += stepperDirection;
 
 				stopPlaying = digitalRead(STOP);
@@ -147,8 +143,7 @@ void playing()
 				if (stopPlaying == LOW)
 					return;		
 			}
-
-      DC_motor.brake();
+     
 			i++;
 		}
 
@@ -182,7 +177,6 @@ void recording()
 		{
 			int stopRecording = digitalRead(STOP);
 			input = analogRead(noteButtonPin);
-			Serial.println(input);
 			if (stopRecording == LOW)
 			  return;
 		  
@@ -207,66 +201,50 @@ void recording()
 		{
 			if (input < 300) // A2
 			{
-				noteName = "A2";
 				note = 110;
-				Serial.println("A2");
-				//tone(speaker, 110, 100);
+				tone(speaker, 110, 100);
 			}
 
 			else if (input > 450 && input < 600) // B2
 			{
-				noteName = "B2";
 				note = 123.471;
-				Serial.println("B2");
-				//tone(speaker, 123.471, 100);
+				tone(speaker, 123.471, 100);
 			}
 
 			else if (input > 600 && input < 720) // C3
 			{
-				noteName = "C3";
 				note = 130.813;
-				Serial.println("C3");
-				//tone(speaker, 130.813, 100); 
+				tone(speaker, 130.813, 100); 
 			}
 
 			else if (input > 730 && input < 790) // D3
 			{
-				noteName = "D3";
 				note = 146.832;
-				Serial.println("D3");
-				//tone(speaker, 146.832, 100); 
+				tone(speaker, 146.832, 100); 
 			}
 
 			else if (input > 800 && input < 840) // E3
 			{
-				noteName = "E3";
 				note = 164.814;
-				Serial.println("E3");
-				//tone(speaker, 164.814, 100); 
+				tone(speaker, 164.814, 100); 
 			}
 
 			else if (input > 845 && input < 860) // F3
 			{
-				noteName = "F3";
 				note = 174.614;
-				Serial.println("F3");
-				//tone(speaker, 174.614, 100); 
+				tone(speaker, 174.614, 100); 
 			}
 
 			else if (input > 861 && input < 885) // G3
 			{
-				noteName = "G3";
 				note = 195.998;
-				Serial.println("G3");
-				//tone(speaker, 195.998, 100); 
+				tone(speaker, 195.998, 100); 
 			}
 
 			else if (input > 885 && input < 950) // G#3
 			{
-				noteName = "G#3";
 				note = 207.652;
-				Serial.println("G#3");
-				//tone(speaker, 207.652, 100); 
+				tone(speaker, 207.652, 100); 
 			}
 
 			input = analogRead(noteButtonPin);
@@ -277,14 +255,141 @@ void recording()
 		// Add note
    if (noteIndex <= NOTELIMIT)
    {
-  		/*tail->note = note;
-  		tail->duration = noteReleased - notePressed;
-  		tail->next = new noteNode();
-  		tail = tail->next;*/
       noteArray[noteIndex].note = note;
       noteArray[noteIndex].duration = noteReleased - notePressed;
       noteIndex++;
   		noteCount++;
 		}
 	}
+}
+
+void live()
+{
+    // Note is being held
+    while (1)
+    {
+      if (digitalRead(STOP) == LOW)
+        return;
+        
+      int input = analogRead(noteButtonPin);
+      
+      if (input < 300) // A2
+      {
+        tone(speaker, 110, 100);
+        int stepperDirection = -1;
+
+        if (stepperPOS <= 0)
+          stepperDirection += 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 450 && input < 600) // B2
+      {
+        tone(speaker, 123.471, 100);
+        int stepperDirection = -1;
+
+        if (stepperPOS <= 0)
+          stepperDirection += 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 600 && input < 720) // C3
+      {
+        tone(speaker, 130.813, 100); 
+        int stepperDirection = -1;
+
+        if (stepperPOS <= 0)
+          stepperDirection += 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 730 && input < 790) // D3
+      {
+        tone(speaker, 146.832, 100); 
+        int stepperDirection = -1;
+
+        if (stepperPOS <= 0)
+          stepperDirection += 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 800 && input < 840) // E3
+      {
+        tone(speaker, 164.814, 100); 
+        int stepperDirection = 1;
+
+        if (stepperPOS >= stepperLimit)
+          stepperDirection -= 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 845 && input < 860) // F3
+      {
+        tone(speaker, 174.614, 100); 
+        int stepperDirection = 1;
+
+        if (stepperPOS >= stepperLimit)
+          stepperDirection -= 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 861 && input < 885) // G3
+      {
+        tone(speaker, 195.998, 100); 
+        int stepperDirection = 1;
+
+        if (stepperPOS >= stepperLimit)
+          stepperDirection -= 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1);
+      }
+
+      else if (input > 885 && input < 950) // G#3
+      {
+        tone(speaker, 207.652, 100);
+        int stepperDirection = 1;
+
+        if (stepperPOS >= stepperLimit)
+          stepperDirection -= 2;
+
+        stepper.step(stepperDirection);
+        DC_motor.drive(1); 
+      }
+    }
+}
+
+void restart()
+{
+  float startTime = millis();
+
+  while (millis() - startTime < 3000)
+  {
+    while(stepperPOS > 0)
+    {
+      stepper.step(-1);
+      stepperPOS--;
+    }
+  }
+
+  if (digitalRead(RESET) == HIGH)
+  {
+    noteArray[0].note = -1;
+    noteIndex = 0;
+    silentIndex = 0;
+  }
+
+  delay(2000);
 }
