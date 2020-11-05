@@ -281,7 +281,9 @@ void live()
         if (stepperPOS <= 0)
           stepperDirection += 2;
 
+        
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -294,6 +296,7 @@ void live()
           stepperDirection += 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -306,6 +309,7 @@ void live()
           stepperDirection += 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -318,6 +322,7 @@ void live()
           stepperDirection += 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -330,6 +335,7 @@ void live()
           stepperDirection -= 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -342,6 +348,7 @@ void live()
           stepperDirection -= 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -354,6 +361,7 @@ void live()
           stepperDirection -= 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1);
       }
 
@@ -366,6 +374,7 @@ void live()
           stepperDirection -= 2;
 
         stepper.step(stepperDirection);
+        stepperPOS += stepperDirection;
         DC_motor.drive(1); 
       }
     }
@@ -377,19 +386,20 @@ void restart()
 
   while (millis() - startTime < 3000)
   {
-    while(stepperPOS > 0)
+    if (digitalRead(RESET) == HIGH)
     {
-      stepper.step(-1);
-      stepperPOS--;
+      while(stepperPOS > 0)
+      {
+        stepper.step(-1);
+        stepperPOS--;
+      }
+
+      return;
     }
   }
-
-  if (digitalRead(RESET) == HIGH)
-  {
-    noteArray[0].note = -1;
-    noteIndex = 0;
-    silentIndex = 0;
-  }
-
+  
+  noteArray[0].note = -1;
+  noteIndex = 0;
+  silentIndex = 0;
   delay(2000);
 }
