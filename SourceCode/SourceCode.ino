@@ -6,7 +6,7 @@
 #include "SparkFun_TB6612.h"
 #define STEPS 200
 #define NOTELIMIT 110
-#define stepperLimit 200
+#define stepperLimit 160
 
 // Pin assignments
 int PLAY = 10;
