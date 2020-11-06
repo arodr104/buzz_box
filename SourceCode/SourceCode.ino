@@ -20,23 +20,27 @@ int speaker = 11;
 Motor DC_motor = Motor(7, 8, 1, 2);
 Stepper stepper(STEPS, 1, 0, 4, 5);
 
-// Struct to hold note information
+// Struct to hold note data
 struct noteNode {
   float duration;
   float note;
 };
 
+// Arrays to store notes and silent notes
 noteNode noteArray[NOTELIMIT];
 float silentNotes[NOTELIMIT];
+
+// Array indecies
 int noteIndex = 0;
 int silentIndex = 0;
-int noteCount = 0;
-int stepperBasePOS = 0;
-int stepperPOS = 0;
+
+int noteCount = 0;	// Current number of notes
+int stepperBasePOS = 0;	// Buzz start position
+int stepperPOS = 0;	// Buzz's current position
 
 void setup()
 {
-  noteArray[0].note = -1;
+  noteArray[0].note = -1; // Empty recording
     
   pinMode(PLAY, INPUT_PULLUP);
   pinMode(STOP, INPUT_PULLUP);
@@ -54,20 +58,20 @@ void loop()
 {
 	int startPlay = digitalRead(PLAY);
 	int startRec = digitalRead(RECORD);
-  int playLive = digitalRead(PLAYLIVE);
-  int resetBox = digitalRead(RESET);
-
+	int playLive = digitalRead(PLAYLIVE);
+	int resetBox = digitalRead(RESET);
+	
 	if (startPlay == LOW)
-	  playing();
+	    playing();
 
 	else if (startRec == LOW)
-	  recording();
+		recording();
 
-  else if (playLive == LOW)
-    live();
+	else if (playLive == LOW)
+		live();
 
-  else if (resetBox == LOW)
-    restart();
+	else if (resetBox == LOW)
+		restart();
 }
 
 // ---------------------------------------------------------------------------
@@ -82,12 +86,12 @@ void loop()
 // ---------------------------------------------------------------------------
 void playing()
 {
-	// Empty List
+	// Empty Recording
 	if (noteArray[0].note == -1)
 		return;
    
-  int i = 0;
-  int stopPlaying;
+    int i = 0;
+    int stopPlaying;
 	
 	// Playing Loop
 	while (1)
@@ -95,59 +99,56 @@ void playing()
 		//noteNode* curr = head;
 		while (i <= noteIndex)
 		{
-      // No sound when not note was pressed
-      float startSilent = millis();
-      
-      while (millis() - startSilent < silentNotes[i])
-      {
-        stopPlaying = digitalRead(STOP);
+			// No sound when not note was pressed
+			float startSilent = millis();
+			  
+			while (millis() - startSilent < silentNotes[i])
+			{
+				stopPlaying = digitalRead(STOP);
 
-        if (stopPlaying == LOW)
-          return;
-      }
-           
+				if (stopPlaying == LOW)
+				  return;
+			}
+				   
 			float startNote = millis();
-      int stepperDirection;
+			int stepperDirection;
 
-      // Choose stepper motor direction based on the current note
-      if (stepperPOS == 0 && noteArray[i].note < 150)
-      {
-          stepperDirection = 1;
-      }
-      else if (noteArray[i].note < 150)
-      {
-        stepperDirection = -1;
-      }
-      else
-      {
-        stepperDirection = 1;
-      }
+			// Choose stepper motor direction based on the current note
+			if (stepperPOS == 0 && noteArray[i].note < 150)
+				stepperDirection = 1;
+			
+			else if (noteArray[i].note < 150)
+				stepperDirection = -1;
+			
+			else
+				stepperDirection = 1;
 
 			// Delay for the length of note
 			while (millis() - startNote < noteArray[i].duration)
 			{
-        tone(speaker, noteArray[i].note, 50);
-
-        if (stepperPOS >= stepperLimit && stepperDirection == 1)
-          stepperDirection -= 2;
-          
-        else if (stepperPOS <= 0 && stepperDirection == -1)
-          stepperDirection += 2;
-          
-        stepper.step(stepperDirection);
-        DC_motor.drive(1);
-        stepperPOS += stepperDirection;
+				tone(speaker, noteArray[i].note, 50);
+				
+				// Change stepper motor direction if the current movement would be outside of the motor's range
+				if (stepperPOS >= stepperLimit && stepperDirection == 1)
+				  stepperDirection -= 2;
+				  
+				else if (stepperPOS <= 0 && stepperDirection == -1)
+				  stepperDirection += 2;
+				  
+				stepper.step(stepperDirection);
+				DC_motor.drive(1);
+				stepperPOS += stepperDirection;
 
 				stopPlaying = digitalRead(STOP);
 
 				if (stopPlaying == LOW)
 					return;		
 			}
-     
+			 
 			i++;
 		}
 
-    i = 0;
+		i = 0;
 	}
 }
 
@@ -191,7 +192,7 @@ void recording()
     silentNotes[silentIndex++] = silenceEnd - silenceStart;
 
     if (silentIndex >= NOTELIMIT)
-      silentIndex--;
+		silentIndex--;
 		
 		float note;
 		String noteName;
@@ -253,142 +254,156 @@ void recording()
 		noteReleased = millis();
 		
 		// Add note
-   if (noteIndex <= NOTELIMIT)
-   {
-      noteArray[noteIndex].note = note;
-      noteArray[noteIndex].duration = noteReleased - notePressed;
-      noteIndex++;
-  		noteCount++;
+		if (noteIndex <= NOTELIMIT)
+		{
+			noteArray[noteIndex].note = note;
+			noteArray[noteIndex].duration = noteReleased - notePressed;
+			noteIndex++;
+			noteCount++;
 		}
 	}
 }
 
+// ---------------------------------------------------------------------------
+// live()
+// 
+// Description:
+//   Play live loop. Allows user to play notes and move Buzz without
+//   recording.
+// ---------------------------------------------------------------------------
 void live()
 {
-    // Note is being held
     while (1)
     {
-      if (digitalRead(STOP) == LOW)
-        return;
-        
-      int input = analogRead(noteButtonPin);
-      
-      if (input < 300) // A2
-      {
-        tone(speaker, 110, 100);
-        int stepperDirection = -1;
+		if (digitalRead(STOP) == LOW)
+			return;
 
-        if (stepperPOS <= 0)
-          stepperDirection += 2;
+		int input = analogRead(noteButtonPin);
 
-        
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+		if (input < 300) // A2
+		{
+			tone(speaker, 110, 100);
+			int stepperDirection = -1;
 
-      else if (input > 450 && input < 600) // B2
-      {
-        tone(speaker, 123.471, 100);
-        int stepperDirection = -1;
+			if (stepperPOS <= 0) // Ensure movement is within bounds
+			  stepperDirection += 2;
 
-        if (stepperPOS <= 0)
-          stepperDirection += 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
 
-      else if (input > 600 && input < 720) // C3
-      {
-        tone(speaker, 130.813, 100); 
-        int stepperDirection = -1;
+		else if (input > 450 && input < 600) // B2
+		{
+			tone(speaker, 123.471, 100);
+			int stepperDirection = -1;
 
-        if (stepperPOS <= 0)
-          stepperDirection += 2;
+			if (stepperPOS <= 0) // Ensure movement is within bounds
+			  stepperDirection += 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
 
-      else if (input > 730 && input < 790) // D3
-      {
-        tone(speaker, 146.832, 100); 
-        int stepperDirection = -1;
+		else if (input > 600 && input < 720) // C3
+		{
+			tone(speaker, 130.813, 100); 
+			int stepperDirection = -1;
 
-        if (stepperPOS <= 0)
-          stepperDirection += 2;
+			if (stepperPOS <= 0) // Ensure movement is within bounds
+			  stepperDirection += 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
 
-      else if (input > 800 && input < 840) // E3
-      {
-        tone(speaker, 164.814, 100); 
-        int stepperDirection = 1;
+		else if (input > 730 && input < 790) // D3
+		{
+			tone(speaker, 146.832, 100); 
+			int stepperDirection = -1;
 
-        if (stepperPOS >= stepperLimit)
-          stepperDirection -= 2;
+			if (stepperPOS <= 0) // Ensure movement is within bounds
+			  stepperDirection += 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
 
-      else if (input > 845 && input < 860) // F3
-      {
-        tone(speaker, 174.614, 100); 
-        int stepperDirection = 1;
+		else if (input > 800 && input < 840) // E3
+		{
+			tone(speaker, 164.814, 100); 
+			int stepperDirection = 1;
 
-        if (stepperPOS >= stepperLimit)
-          stepperDirection -= 2;
+			if (stepperPOS >= stepperLimit) // Ensure movement is within bounds
+			  stepperDirection -= 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
 
-      else if (input > 861 && input < 885) // G3
-      {
-        tone(speaker, 195.998, 100); 
-        int stepperDirection = 1;
+		else if (input > 845 && input < 860) // F3
+		{
+			tone(speaker, 174.614, 100); 
+			int stepperDirection = 1;
 
-        if (stepperPOS >= stepperLimit)
-          stepperDirection -= 2;
+			if (stepperPOS >= stepperLimit) // Ensure movement is within bounds
+			  stepperDirection -= 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1);
-      }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
 
-      else if (input > 885 && input < 950) // G#3
-      {
-        tone(speaker, 207.652, 100);
-        int stepperDirection = 1;
+		else if (input > 861 && input < 885) // G3
+		{
+			tone(speaker, 195.998, 100); 
+			int stepperDirection = 1;
 
-        if (stepperPOS >= stepperLimit)
-          stepperDirection -= 2;
+			if (stepperPOS >= stepperLimit) // Ensure movement is within bounds
+			  stepperDirection -= 2;
 
-        stepper.step(stepperDirection);
-        stepperPOS += stepperDirection;
-        DC_motor.drive(1); 
-      }
-    }
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1);
+		}
+
+		else if (input > 885 && input < 950) // G#3
+		{
+			tone(speaker, 207.652, 100);
+			int stepperDirection = 1;
+
+			if (stepperPOS >= stepperLimit) // Ensure movement is within bounds
+			  stepperDirection -= 2;
+
+			stepper.step(stepperDirection);
+			stepperPOS += stepperDirection;
+			DC_motor.drive(1); 
+		}
+	}
 }
 
+// ---------------------------------------------------------------------------
+// restart()
+// 
+// Description:
+//   Called when reset button is pressed when in idle mode. If restart is
+//   pressed/held for less than 3 seconds, move Buzz back to start position.
+//   If reset is held for 3 seconds, clear the current recording.
+// ---------------------------------------------------------------------------
 void restart()
 {
   float startTime = millis();
 
   while (millis() - startTime < 3000)
   {
-    if (digitalRead(RESET) == HIGH)
+    if (digitalRead(RESET) == HIGH)	// Reset was released
     {
-      while(stepperPOS > 0)
+      while(stepperPOS > 0)	// Move buzz down until he's at starting position
       {
         stepper.step(-1);
         stepperPOS--;
@@ -398,6 +413,7 @@ void restart()
     }
   }
   
+  // Clear Recording
   noteArray[0].note = -1;
   noteIndex = 0;
   silentIndex = 0;
